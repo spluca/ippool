@@ -49,12 +49,21 @@ pub struct HealthResponse {
 impl IntoResponse for IpPoolError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
-            IpPoolError::NoAvailableIps => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "No available IPs in pool".to_string(),
-            ),
-            IpPoolError::IpNotFound => (StatusCode::NOT_FOUND, "IP not found".to_string()),
-            IpPoolError::InvalidIp => (StatusCode::BAD_REQUEST, "Invalid IP address".to_string()),
+            IpPoolError::NoAvailableIps => {
+                tracing::warn!("Request failed: No available IPs in pool");
+                (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "No available IPs in pool".to_string(),
+                )
+            }
+            IpPoolError::IpNotFound => {
+                tracing::warn!("Request failed: IP not found");
+                (StatusCode::NOT_FOUND, "IP not found".to_string())
+            }
+            IpPoolError::InvalidIp => {
+                tracing::warn!("Request failed: Invalid IP address");
+                (StatusCode::BAD_REQUEST, "Invalid IP address".to_string())
+            }
         };
 
         let body = Json(ErrorResponse { error: message });
@@ -64,6 +73,7 @@ impl IntoResponse for IpPoolError {
 
 // Health check handler
 pub async fn health_check() -> Json<HealthResponse> {
+    tracing::debug!("Health check request received");
     Json(HealthResponse {
         status: "healthy".to_string(),
     })
@@ -74,17 +84,28 @@ pub async fn allocate_ip(
     State(pool): State<IpPool>,
     Json(req): Json<AllocateIpRequest>,
 ) -> Result<(StatusCode, Json<AllocateIpResponse>), IpPoolError> {
+    tracing::info!(
+        "IP allocation request - vm_id: {}, hostname: {:?}",
+        req.vm_id,
+        req.hostname
+    );
+
     let ip = pool.allocate_ip(req.vm_id.clone()).await?;
     let stats = pool.get_stats().await;
 
     let response = AllocateIpResponse {
-        ip,
-        vm_id: req.vm_id,
+        ip: ip.clone(),
+        vm_id: req.vm_id.clone(),
         gateway: stats["gateway"].as_str().unwrap().to_string(),
         network: stats["network"].as_str().unwrap().to_string(),
         hostname: req.hostname,
     };
 
+    tracing::info!(
+        "IP allocated successfully - vm_id: {}, ip: {}",
+        req.vm_id,
+        ip
+    );
     Ok((StatusCode::CREATED, Json(response)))
 }
 
@@ -93,8 +114,11 @@ pub async fn release_ip(
     State(pool): State<IpPool>,
     Path(vm_id): Path<String>,
 ) -> Result<Json<ReleaseIpResponse>, IpPoolError> {
+    tracing::info!("IP release request by VM ID - vm_id: {}", vm_id);
+
     pool.release_ip(&vm_id).await?;
 
+    tracing::info!("IP released successfully - vm_id: {}", vm_id);
     Ok(Json(ReleaseIpResponse {
         message: "IP released successfully".to_string(),
         vm_id: Some(vm_id),
@@ -107,8 +131,11 @@ pub async fn release_ip_by_address(
     State(pool): State<IpPool>,
     Path(ip): Path<String>,
 ) -> Result<Json<ReleaseIpResponse>, IpPoolError> {
+    tracing::info!("IP release request by address - ip: {}", ip);
+
     pool.release_ip_by_address(&ip).await?;
 
+    tracing::info!("IP released successfully - ip: {}", ip);
     Ok(Json(ReleaseIpResponse {
         message: "IP released successfully".to_string(),
         vm_id: None,
@@ -121,7 +148,11 @@ pub async fn get_allocation(
     State(pool): State<IpPool>,
     Path(vm_id): Path<String>,
 ) -> Result<Json<crate::ippool::IpAllocation>, IpPoolError> {
+    tracing::debug!("Get allocation request - vm_id: {}", vm_id);
+
     let allocation = pool.get_allocation(&vm_id).await?;
+
+    tracing::debug!("Allocation found - vm_id: {}, ip: {}", vm_id, allocation.ip);
     Ok(Json(allocation))
 }
 
@@ -129,12 +160,25 @@ pub async fn get_allocation(
 pub async fn list_allocations(
     State(pool): State<IpPool>,
 ) -> Json<Vec<crate::ippool::IpAllocation>> {
+    tracing::debug!("List allocations request received");
+
     let allocations = pool.list_allocations().await;
+
+    tracing::debug!("Returning {} allocations", allocations.len());
     Json(allocations)
 }
 
 // Get stats handler
 pub async fn get_stats(State(pool): State<IpPool>) -> Json<serde_json::Value> {
+    tracing::debug!("Get stats request received");
+
     let stats = pool.get_stats().await;
+
+    tracing::debug!(
+        "Returning pool stats: total={}, allocated={}, available={}",
+        stats["total"],
+        stats["allocated"],
+        stats["available"]
+    );
     Json(stats)
 }

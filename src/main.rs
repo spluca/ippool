@@ -8,7 +8,9 @@ use axum::{
 use clap::Parser;
 use ippool::IpPool;
 use std::net::SocketAddr;
-use tower_http::trace::TraceLayer;
+use tower_http::LatencyUnit;
+use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
+use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Parser, Debug)]
@@ -70,18 +72,18 @@ async fn main() {
         )
         .route("/api/v1/ip/{vm_id}", get(handlers::get_allocation))
         .with_state(pool)
-        .layer(TraceLayer::new_for_http());
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .latency_unit(LatencyUnit::Millis),
+                ),
+        );
 
     let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
     tracing::info!("🚀 Starting IP Pool API server on {}", addr);
-    tracing::info!("📊 API endpoints:");
-    tracing::info!("   POST   /api/v1/ip/allocate");
-    tracing::info!("   DELETE /api/v1/ip/release/{{vm_id}}");
-    tracing::info!("   DELETE /api/v1/ip/release-by-ip/{{ip}}");
-    tracing::info!("   GET    /api/v1/ip/{{vm_id}}");
-    tracing::info!("   GET    /api/v1/ip/allocations");
-    tracing::info!("   GET    /api/v1/ip/stats");
-    tracing::info!("   GET    /api/v1/health");
 
     // Start server
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
