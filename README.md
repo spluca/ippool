@@ -154,17 +154,34 @@ cargo tarpaulin --out Html
 - **Memory:** No GC pauses, predictable usage
 - **Concurrency:** Lock-free reads, async-safe writes
 
+## CI/CD
+
+GitLab CI pipeline automatically:
+- Runs tests on every commit
+- Checks code formatting and linting
+- Builds Docker image for every branch
+- Tags `latest` on main/master branch
+- Creates versioned releases on git tags
+
+**Pipeline stages:**
+1. **Test** - Run `cargo test` and `cargo clippy`
+2. **Build** - Build and push Docker image
+3. **Release** - Tag as `latest` or version tag
+
+**Docker images:** Available in GitLab Container Registry at `${CI_REGISTRY_IMAGE}`
+
 ## Project Structure
 
 ```
 ippool/
-├── Cargo.toml       # Dependencies
-├── Dockerfile       # Multi-stage build
-├── .dockerignore    # Build optimization
+├── Cargo.toml        # Dependencies
+├── Dockerfile        # Multi-stage build
+├── .dockerignore     # Build optimization
+├── .gitlab-ci.yml    # CI/CD pipeline
 └── src/
-    ├── main.rs      # Server & routing
-    ├── handlers.rs  # HTTP handlers
-    └── ippool.rs    # Core logic + tests
+    ├── main.rs       # Server & routing
+    ├── handlers.rs   # HTTP handlers
+    └── ippool.rs     # Core logic + tests
 ```
 
 ## Integration Example
