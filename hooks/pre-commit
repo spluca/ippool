@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# Pre-commit hook that runs cargo fmt --check
+# to ensure code is formatted before committing.
+#
+# To install this hook, run from project root:
+#   ln -s ../../hooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# To bypass this hook temporarily:
+#   git commit --no-verify
+#
+
+set -e
+
+echo "Running cargo fmt check..."
+
+# Try to find cargo in common locations
+if command -v cargo &> /dev/null; then
+    CARGO=cargo
+elif [ -f "$HOME/.cargo/bin/cargo" ]; then
+    CARGO="$HOME/.cargo/bin/cargo"
+else
+    echo "Error: cargo not found. Please install Rust."
+    exit 1
+fi
+
+# Check if rustfmt is installed
+if ! $CARGO fmt --version &> /dev/null; then
+    echo "Error: rustfmt not found. Installing..."
+    if command -v rustup &> /dev/null || [ -f "$HOME/.cargo/bin/rustup" ]; then
+        RUSTUP="${RUSTUP:-$HOME/.cargo/bin/rustup}"
+        $RUSTUP component add rustfmt
+    else
+        echo "Error: rustup not found. Cannot install rustfmt."
+        exit 1
+    fi
+fi
+
+# Run cargo fmt check
+if ! $CARGO fmt -- --check; then
+    echo ""
+    echo "Error: Code is not formatted properly."
+    echo "Please run 'cargo fmt' to format your code before committing."
+    echo ""
+    echo "To format all code, run:"
+    echo "  cargo fmt"
+    echo ""
+    echo "To bypass this check (not recommended), use:"
+    echo "  git commit --no-verify"
+    exit 1
+fi
+
+echo "✓ Code formatting check passed!"
+exit 0
