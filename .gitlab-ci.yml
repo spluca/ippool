@@ -76,7 +76,7 @@ build:
   image: docker:29-cli
   services:
     - name: docker:29-dind
-      command: ["--insecure-registry=git.spluca.org"]
+      command: ["--tls=false", "--insecure-registry=git.spluca.org"]
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
@@ -103,7 +103,7 @@ release:latest:
   image: docker:29-cli
   services:
     - name: docker:29-dind
-      command: ["--insecure-registry=git.spluca.org"]
+      command: ["--tls=false", "--insecure-registry=git.spluca.org"]
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
@@ -127,7 +127,7 @@ release:tag:
   image: docker:29-cli
   services:
     - name: docker:29-dind
-      command: ["--insecure-registry=git.spluca.org"]
+      command: ["--tls=false", "--insecure-registry=git.spluca.org"]
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
