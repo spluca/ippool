@@ -2,8 +2,8 @@ mod handlers;
 mod ippool;
 
 use axum::{
-    routing::{delete, get, post},
     Router,
+    routing::{delete, get, post},
 };
 use clap::Parser;
 use ippool::IpPool;
@@ -40,8 +40,9 @@ async fn main() {
     let log_level = if args.debug { "debug" } else { "info" };
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("ippool={},tower_http={}", log_level, log_level).into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                format!("ippool={},tower_http={}", log_level, log_level).into()
+            }),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
