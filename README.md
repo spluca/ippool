@@ -154,6 +154,18 @@ cargo tarpaulin --out Html
 - **Memory:** No GC pauses, predictable usage
 - **Concurrency:** Lock-free reads, async-safe writes
 
+## Development Setup
+
+### Git Hooks
+
+Install pre-commit hooks to ensure code quality:
+
+```bash
+./hooks/install.sh
+```
+
+The pre-commit hook runs `cargo fmt --check` before each commit.
+
 ## CI/CD
 
 GitLab CI pipeline automatically:
@@ -178,6 +190,10 @@ ippool/
 ├── Dockerfile        # Multi-stage build
 ├── .dockerignore     # Build optimization
 ├── .gitlab-ci.yml    # CI/CD pipeline
+├── hooks/            # Git hooks
+│   ├── pre-commit    # Format check
+│   ├── install.sh    # Hook installer
+│   └── README.md     # Hook documentation
 └── src/
     ├── main.rs       # Server & routing
     ├── handlers.rs   # HTTP handlers
