@@ -24,9 +24,7 @@ variables:
   CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
-  # GitLab Container Registry
-  CI_REGISTRY: "git.spluca.org"
-  CI_REGISTRY_IMAGE: "${CI_REGISTRY}/${CI_PROJECT_PATH}"
+  # GitLab provides these automatically: CI_REGISTRY, CI_REGISTRY_IMAGE, CI_REGISTRY_USER, CI_REGISTRY_PASSWORD
   IMAGE_TAG: ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
   IMAGE_LATEST: ${CI_REGISTRY_IMAGE}:latest
   # Skip TLS verification for Docker registry
@@ -76,7 +74,7 @@ build:
   image: docker:29-cli
   services:
     - name: docker:29-dind
-      command: ["--tls=false", "--insecure-registry=git.spluca.org"]
+      command: ["--tls=false"]
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
@@ -85,14 +83,20 @@ build:
     - echo "CI_PROJECT_PATH=${CI_PROJECT_PATH}"
     - echo "CI_REGISTRY_IMAGE=${CI_REGISTRY_IMAGE}"
     - echo "IMAGE_TAG=${IMAGE_TAG}"
+    - echo "CI_REGISTRY_USER=${CI_REGISTRY_USER}"
     - echo "=================="
     - echo "Configuring insecure registry ${CI_REGISTRY}"
     - apk add --no-cache openssl ca-certificates curl
     - update-ca-certificates
-    - mkdir -p /etc/docker/certs.d/${CI_REGISTRY}
-    - echo -n | openssl s_client -connect ${CI_REGISTRY}:443 -servername ${CI_REGISTRY} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${CI_REGISTRY}/ca.crt || echo "Failed to get cert, will skip verification"
-    - echo "Testing registry endpoint..."
-    - curl -k -I https://${CI_REGISTRY}/v2/ || echo "Registry v2 endpoint not accessible"
+    - |
+      if [ -n "${CI_REGISTRY}" ]; then
+        REGISTRY_HOST=$(echo ${CI_REGISTRY} | cut -d'/' -f1)
+        echo "Registry host: ${REGISTRY_HOST}"
+        mkdir -p /etc/docker/certs.d/${REGISTRY_HOST}
+        echo -n | openssl s_client -connect ${REGISTRY_HOST}:443 -servername ${REGISTRY_HOST} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${REGISTRY_HOST}/ca.crt || echo "Failed to get cert"
+        echo "Testing registry endpoint..."
+        curl -k -I https://${CI_REGISTRY}/v2/ || echo "Registry v2 endpoint not accessible at ${CI_REGISTRY}"
+      fi
     - echo "Logging in to GitLab Container Registry at ${CI_REGISTRY}"
     - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
@@ -110,15 +114,19 @@ release:latest:
   image: docker:29-cli
   services:
     - name: docker:29-dind
-      command: ["--tls=false", "--insecure-registry=git.spluca.org"]
+      command: ["--tls=false"]
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
     - echo "Configuring insecure registry ${CI_REGISTRY}"
     - apk add --no-cache openssl ca-certificates
     - update-ca-certificates
-    - mkdir -p /etc/docker/certs.d/${CI_REGISTRY}
-    - echo -n | openssl s_client -connect ${CI_REGISTRY}:443 -servername ${CI_REGISTRY} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${CI_REGISTRY}/ca.crt || echo "Failed to get cert, will skip verification"
+    - |
+      if [ -n "${CI_REGISTRY}" ]; then
+        REGISTRY_HOST=$(echo ${CI_REGISTRY} | cut -d'/' -f1)
+        mkdir -p /etc/docker/certs.d/${REGISTRY_HOST}
+        echo -n | openssl s_client -connect ${REGISTRY_HOST}:443 -servername ${REGISTRY_HOST} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${REGISTRY_HOST}/ca.crt || echo "Failed to get cert"
+      fi
     - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
     - docker pull ${IMAGE_TAG}
@@ -134,15 +142,19 @@ release:tag:
   image: docker:29-cli
   services:
     - name: docker:29-dind
-      command: ["--tls=false", "--insecure-registry=git.spluca.org"]
+      command: ["--tls=false"]
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
     - echo "Configuring insecure registry ${CI_REGISTRY}"
     - apk add --no-cache openssl ca-certificates
     - update-ca-certificates
-    - mkdir -p /etc/docker/certs.d/${CI_REGISTRY}
-    - echo -n | openssl s_client -connect ${CI_REGISTRY}:443 -servername ${CI_REGISTRY} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${CI_REGISTRY}/ca.crt || echo "Failed to get cert, will skip verification"
+    - |
+      if [ -n "${CI_REGISTRY}" ]; then
+        REGISTRY_HOST=$(echo ${CI_REGISTRY} | cut -d'/' -f1)
+        mkdir -p /etc/docker/certs.d/${REGISTRY_HOST}
+        echo -n | openssl s_client -connect ${REGISTRY_HOST}:443 -servername ${REGISTRY_HOST} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${REGISTRY_HOST}/ca.crt || echo "Failed to get cert"
+      fi
     - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
     - docker pull ${IMAGE_TAG}
