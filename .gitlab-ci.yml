@@ -23,7 +23,7 @@ stages:
 variables:
   CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
   DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_CERTDIR: ""
   # GitLab Container Registry
   CI_REGISTRY: "git.spluca.org"
   CI_REGISTRY_IMAGE: "${CI_REGISTRY}/${CI_PROJECT_PATH}"
@@ -75,7 +75,11 @@ build:
   services:
     - name: docker:29-dind
       command: ["--insecure-registry=git.spluca.org"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
   before_script:
+    - mkdir -p $HOME/.docker
+    - echo '{"insecure-registries":["git.spluca.org"]}' > $HOME/.docker/config.json
     - echo "Logging in to GitLab Container Registry at ${CI_REGISTRY}"
     - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
@@ -94,7 +98,11 @@ release:latest:
   services:
     - name: docker:29-dind
       command: ["--insecure-registry=git.spluca.org"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
   before_script:
+    - mkdir -p $HOME/.docker
+    - echo '{"insecure-registries":["git.spluca.org"]}' > $HOME/.docker/config.json
     - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
     - docker pull ${IMAGE_TAG}
@@ -111,7 +119,11 @@ release:tag:
   services:
     - name: docker:29-dind
       command: ["--insecure-registry=git.spluca.org"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
   before_script:
+    - mkdir -p $HOME/.docker
+    - echo '{"insecure-registries":["git.spluca.org"]}' > $HOME/.docker/config.json
     - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
     - docker pull ${IMAGE_TAG}
