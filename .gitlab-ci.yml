@@ -24,7 +24,9 @@ variables:
   CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
-  # GitLab provides these automatically: CI_REGISTRY, CI_REGISTRY_IMAGE, CI_REGISTRY_USER, CI_REGISTRY_PASSWORD
+  # GitLab Container Registry (manually defined because instance doesn't provide them)
+  CI_REGISTRY: "git.spluca.org:5050"
+  CI_REGISTRY_IMAGE: "git.spluca.org:5050/${CI_PROJECT_PATH}"
   IMAGE_TAG: ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
   IMAGE_LATEST: ${CI_REGISTRY_IMAGE}:latest
   # Skip TLS verification for Docker registry
@@ -74,7 +76,7 @@ build:
   image: docker:29-cli
   services:
     - name: docker:29-dind
-      command: ["--tls=false"]
+      command: ["--tls=false", "--insecure-registry=git.spluca.org:5050"]
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
@@ -114,7 +116,7 @@ release:latest:
   image: docker:29-cli
   services:
     - name: docker:29-dind
-      command: ["--tls=false"]
+      command: ["--tls=false", "--insecure-registry=git.spluca.org:5050"]
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
@@ -142,7 +144,7 @@ release:tag:
   image: docker:29-cli
   services:
     - name: docker:29-dind
-      command: ["--tls=false"]
+      command: ["--tls=false", "--insecure-registry=git.spluca.org:5050"]
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
