@@ -1,3 +1,20 @@
+# GitLab CI/CD Pipeline for IP Pool API
+#
+# This pipeline:
+# - Runs tests and linting on every commit
+# - Builds Docker images and pushes to GitLab Container Registry
+# - Tags images as 'latest' on main/master branch
+# - Creates versioned releases from git tags
+#
+# Container Registry: ${CI_REGISTRY_IMAGE}
+# Example: registry.gitlab.com/username/ippool
+#
+# GitLab automatically provides these variables:
+# - CI_REGISTRY: GitLab Container Registry URL
+# - CI_REGISTRY_IMAGE: Full image path (registry + project)
+# - CI_REGISTRY_USER: Username (gitlab-ci-token)
+# - CI_REGISTRY_PASSWORD: Temporary token for authentication
+
 stages:
   - test
   - build
@@ -55,9 +72,12 @@ build:
   services:
     - docker:29-dind
   before_script:
-    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+    - echo "Logging in to GitLab Container Registry at ${CI_REGISTRY}"
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
+    - echo "Building image ${IMAGE_TAG}"
     - docker build -t ${IMAGE_TAG} .
+    - echo "Pushing image to GitLab Container Registry"
     - docker push ${IMAGE_TAG}
   rules:
     - if: $CI_COMMIT_BRANCH
@@ -70,7 +90,7 @@ release:latest:
   services:
     - docker:29-dind
   before_script:
-    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
     - docker pull ${IMAGE_TAG}
     - docker tag ${IMAGE_TAG} ${IMAGE_LATEST}
@@ -86,12 +106,11 @@ release:tag:
   services:
     - docker:29-dind
   before_script:
-    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
     - docker pull ${IMAGE_TAG}
     - docker tag ${IMAGE_TAG} ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}
     - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}
-    # Also tag as latest if it's a release tag
     - |
       if echo ${CI_COMMIT_TAG} | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
         docker tag ${IMAGE_TAG} ${IMAGE_LATEST}
