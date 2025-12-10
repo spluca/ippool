@@ -1,7 +1,7 @@
 #!/bin/sh
 #
-# Pre-commit hook that runs cargo fmt --check
-# to ensure code is formatted before committing.
+# Pre-commit hook that runs cargo fmt --check and cargo clippy
+# to ensure code quality before committing.
 #
 # To install this hook, run from project root:
 #   ln -s ../../hooks/pre-commit .git/hooks/pre-commit
@@ -12,8 +12,6 @@
 #
 
 set -e
-
-echo "Running cargo fmt check..."
 
 # Try to find cargo in common locations
 if command -v cargo &> /dev/null; then
@@ -37,6 +35,20 @@ if ! $CARGO fmt --version &> /dev/null; then
     fi
 fi
 
+# Check if clippy is installed
+if ! $CARGO clippy --version &> /dev/null; then
+    echo "Error: clippy not found. Installing..."
+    if command -v rustup &> /dev/null || [ -f "$HOME/.cargo/bin/rustup" ]; then
+        RUSTUP="${RUSTUP:-$HOME/.cargo/bin/rustup}"
+        $RUSTUP component add clippy
+    else
+        echo "Error: rustup not found. Cannot install clippy."
+        exit 1
+    fi
+fi
+
+echo "Running cargo fmt check..."
+
 # Run cargo fmt check
 if ! $CARGO fmt -- --check; then
     echo ""
@@ -52,4 +64,20 @@ if ! $CARGO fmt -- --check; then
 fi
 
 echo "✓ Code formatting check passed!"
+
+echo "Running cargo clippy..."
+
+# Run cargo clippy with warnings as errors
+if ! $CARGO clippy -- -D warnings; then
+    echo ""
+    echo "Error: Clippy found issues in your code."
+    echo "Please fix the warnings above before committing."
+    echo ""
+    echo "To bypass this check (not recommended), use:"
+    echo "  git commit --no-verify"
+    exit 1
+fi
+
+echo "✓ Clippy check passed!"
+echo "✓ All pre-commit checks passed!"
 exit 0

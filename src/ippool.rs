@@ -52,13 +52,8 @@ impl IpPool {
         let end = 254;
         let mut available = Vec::with_capacity((end - start + 1) as usize);
 
-        // Parse network prefix (e.g., "172.16.0")
-        let parts: Vec<&str> = network.split('.').collect();
-        let prefix = if parts.len() == 3 {
-            network.clone()
-        } else {
-            network.clone()
-        };
+        // Use network prefix as-is (e.g., "172.16.0")
+        let prefix = network.clone();
 
         // Initialize available IPs
         for i in start..=end {

@@ -17,14 +17,15 @@ This creates symlinks from `.git/hooks/` to the versioned hooks in `hooks/`:
 
 ## Pre-commit Hook
 
-Runs `cargo fmt --check` before each commit to ensure code is properly formatted.
+Runs `cargo fmt --check` and `cargo clippy -- -D warnings` before each commit to ensure code quality.
 
 ### How it works
 
 1. **On commit:** Git automatically executes `.git/hooks/pre-commit`
 2. **Check format:** The hook runs `cargo fmt --check`
-3. **Success:** If formatted correctly, commit proceeds
-4. **Failure:** If not formatted, commit is blocked with instructions
+3. **Check linting:** The hook runs `cargo clippy -- -D warnings`
+4. **Success:** If all checks pass, commit proceeds
+5. **Failure:** If any check fails, commit is blocked with instructions
 
 ### Example output
 
@@ -32,6 +33,9 @@ Runs `cargo fmt --check` before each commit to ensure code is properly formatted
 ```
 Running cargo fmt check...
 ✓ Code formatting check passed!
+Running cargo clippy...
+✓ Clippy check passed!
+✓ All pre-commit checks passed!
 ```
 
 **Failure:**
@@ -53,6 +57,12 @@ To bypass this check (not recommended), use:
 cargo fmt
 ```
 
+### Fix clippy warnings
+
+```bash
+cargo clippy -- -D warnings
+```
+
 ### Bypass (not recommended)
 
 To skip the hook temporarily:
@@ -65,6 +75,7 @@ git commit --no-verify
 
 - Rust and Cargo installed
 - `rustfmt` component (auto-installed if missing)
+- `clippy` component (auto-installed if missing)
 
 ## Why symlinks?
 
