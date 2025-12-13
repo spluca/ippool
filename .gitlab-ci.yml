@@ -76,9 +76,14 @@ build:
   image: docker:29-cli
   services:
     - name: docker:29-dind
+      alias: docker
+      command: ["--tls=true"]
   variables:
     DOCKER_HOST: tcp://docker:2376
   before_script:
+    - echo "waiting for docker daemon to generate tls certificates..."
+    - until docker info >/dev/null 2>&1; do sleep 1; done
+    - echo "docker daemon ready"
     - echo "=== Debug Info ==="
     - echo "CI_REGISTRY=${CI_REGISTRY}"
     - echo "CI_PROJECT_PATH=${CI_PROJECT_PATH}"
@@ -115,9 +120,14 @@ release:latest:
   image: docker:29-cli
   services:
     - name: docker:29-dind
+      alias: docker
+      command: ["--tls=true"]
   variables:
     DOCKER_HOST: tcp://docker:2376
   before_script:
+    - echo "waiting for docker daemon to generate tls certificates..."
+    - until docker info >/dev/null 2>&1; do sleep 1; done
+    - echo "docker daemon ready"
     - echo "Configuring insecure registry ${CI_REGISTRY}"
     - apk add --no-cache openssl ca-certificates
     - update-ca-certificates
@@ -142,9 +152,14 @@ release:tag:
   image: docker:29-cli
   services:
     - name: docker:29-dind
+      alias: docker
+      command: ["--tls=true"]
   variables:
     DOCKER_HOST: tcp://docker:2376
   before_script:
+    - echo "waiting for docker daemon to generate tls certificates..."
+    - until docker info >/dev/null 2>&1; do sleep 1; done
+    - echo "docker daemon ready"
     - echo "Configuring insecure registry ${CI_REGISTRY}"
     - apk add --no-cache openssl ca-certificates
     - update-ca-certificates
