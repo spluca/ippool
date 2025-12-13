@@ -23,7 +23,6 @@ stages:
 variables:
   CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
   DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: ""
   # GitLab Container Registry (manually defined because instance doesn't provide them)
   CI_REGISTRY: "git.spluca.org:5050"
   CI_REGISTRY_IMAGE: "git.spluca.org:5050/${CI_PROJECT_PATH}"
