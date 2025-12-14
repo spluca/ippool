@@ -219,4 +219,4 @@ curl -X DELETE http://localhost:8080/api/v1/ip/release/$VM_ID
 
 ## License
 
-Same as parent project.
+MIT.
