@@ -16,6 +16,7 @@
 # - CI_REGISTRY_PASSWORD: Temporary token for authentication
 
 stages:
+  - diagnose
   - test
   - build
   - release
@@ -31,6 +32,26 @@ variables:
   CI_REGISTRY_IMAGE: "git.spluca.org:5050/${CI_PROJECT_PATH}"
   IMAGE_TAG: ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
   IMAGE_LATEST: ${CI_REGISTRY_IMAGE}:latest
+
+# Diagnose network connectivity
+diagnose:
+  stage: diagnose
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl bind-tools netcat-openbsd
+  script:
+    - echo "=== Network Diagnostics ==="
+    - echo "Resolving ${CI_REGISTRY}..."
+    - nslookup git.spluca.org || echo "DNS resolution failed"
+    - echo "Testing connectivity to ${CI_REGISTRY}..."
+    - nc -zv -w5 git.spluca.org 5050 || echo "Port 5050 not accessible"
+    - echo "Testing HTTPS endpoint..."
+    - curl -k -I --connect-timeout 10 https://${CI_REGISTRY}/v2/ || echo "HTTPS endpoint not accessible"
+    - echo "Testing HTTP endpoint..."
+    - curl -I --connect-timeout 10 http://${CI_REGISTRY}/v2/ || echo "HTTP endpoint not accessible"
+  rules:
+    - if: $CI_COMMIT_BRANCH
+  allow_failure: true
 
 # Cache for Rust dependencies
 .cargo_cache: &cargo_cache
@@ -77,7 +98,7 @@ build:
   services:
     - name: docker:29-dind
       alias: docker
-      command: ["--tls=true"]
+      command: ["--tls=true", "--insecure-registry=git.spluca.org:5050"]
   variables:
     DOCKER_HOST: tcp://docker:2376
   before_script:
@@ -96,12 +117,19 @@ build:
     - update-ca-certificates
     - |
       if [ -n "${CI_REGISTRY}" ]; then
-        REGISTRY_HOST=$(echo ${CI_REGISTRY} | cut -d'/' -f1)
-        echo "Registry host: ${REGISTRY_HOST}"
-        mkdir -p /etc/docker/certs.d/${REGISTRY_HOST}
-        echo -n | openssl s_client -connect ${REGISTRY_HOST}:443 -servername ${REGISTRY_HOST} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${REGISTRY_HOST}/ca.crt || echo "Failed to get cert"
+        REGISTRY_HOST=$(echo ${CI_REGISTRY} | cut -d':' -f1)
+        REGISTRY_PORT=$(echo ${CI_REGISTRY} | cut -d':' -f2)
+        echo "Registry host: ${REGISTRY_HOST}:${REGISTRY_PORT}"
+        mkdir -p /etc/docker/certs.d/${CI_REGISTRY}
+        
+        # Try to get certificate if HTTPS is available
         echo "Testing registry endpoint..."
-        curl -k -I https://${CI_REGISTRY}/v2/ || echo "Registry v2 endpoint not accessible at ${CI_REGISTRY}"
+        if curl -k -I --connect-timeout 5 https://${CI_REGISTRY}/v2/ 2>/dev/null; then
+          echo "HTTPS registry detected, downloading certificate..."
+          echo -n | openssl s_client -connect ${REGISTRY_HOST}:${REGISTRY_PORT} -servername ${REGISTRY_HOST} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${CI_REGISTRY}/ca.crt || echo "Failed to get cert"
+        else
+          echo "Registry not accessible via HTTPS, will use insecure registry configuration"
+        fi
       fi
     - echo "Logging in to GitLab Container Registry at ${CI_REGISTRY}"
     - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
@@ -121,7 +149,7 @@ release:latest:
   services:
     - name: docker:29-dind
       alias: docker
-      command: ["--tls=true"]
+      command: ["--tls=true", "--insecure-registry=git.spluca.org:5050"]
   variables:
     DOCKER_HOST: tcp://docker:2376
   before_script:
@@ -133,9 +161,14 @@ release:latest:
     - update-ca-certificates
     - |
       if [ -n "${CI_REGISTRY}" ]; then
-        REGISTRY_HOST=$(echo ${CI_REGISTRY} | cut -d'/' -f1)
-        mkdir -p /etc/docker/certs.d/${REGISTRY_HOST}
-        echo -n | openssl s_client -connect ${REGISTRY_HOST}:443 -servername ${REGISTRY_HOST} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${REGISTRY_HOST}/ca.crt || echo "Failed to get cert"
+        REGISTRY_HOST=$(echo ${CI_REGISTRY} | cut -d':' -f1)
+        REGISTRY_PORT=$(echo ${CI_REGISTRY} | cut -d':' -f2)
+        mkdir -p /etc/docker/certs.d/${CI_REGISTRY}
+        
+        # Try to get certificate if HTTPS is available
+        if curl -k -I --connect-timeout 5 https://${CI_REGISTRY}/v2/ 2>/dev/null; then
+          echo -n | openssl s_client -connect ${REGISTRY_HOST}:${REGISTRY_PORT} -servername ${REGISTRY_HOST} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${CI_REGISTRY}/ca.crt || echo "Failed to get cert"
+        fi
       fi
     - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
@@ -153,7 +186,7 @@ release:tag:
   services:
     - name: docker:29-dind
       alias: docker
-      command: ["--tls=true"]
+      command: ["--tls=true", "--insecure-registry=git.spluca.org:5050"]
   variables:
     DOCKER_HOST: tcp://docker:2376
   before_script:
@@ -165,9 +198,14 @@ release:tag:
     - update-ca-certificates
     - |
       if [ -n "${CI_REGISTRY}" ]; then
-        REGISTRY_HOST=$(echo ${CI_REGISTRY} | cut -d'/' -f1)
-        mkdir -p /etc/docker/certs.d/${REGISTRY_HOST}
-        echo -n | openssl s_client -connect ${REGISTRY_HOST}:443 -servername ${REGISTRY_HOST} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${REGISTRY_HOST}/ca.crt || echo "Failed to get cert"
+        REGISTRY_HOST=$(echo ${CI_REGISTRY} | cut -d':' -f1)
+        REGISTRY_PORT=$(echo ${CI_REGISTRY} | cut -d':' -f2)
+        mkdir -p /etc/docker/certs.d/${CI_REGISTRY}
+        
+        # Try to get certificate if HTTPS is available
+        if curl -k -I --connect-timeout 5 https://${CI_REGISTRY}/v2/ 2>/dev/null; then
+          echo -n | openssl s_client -connect ${REGISTRY_HOST}:${REGISTRY_PORT} -servername ${REGISTRY_HOST} 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /etc/docker/certs.d/${CI_REGISTRY}/ca.crt || echo "Failed to get cert"
+        fi
       fi
     - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   script:
