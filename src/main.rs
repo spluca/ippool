@@ -5,52 +5,18 @@ use axum::{
     Router,
     routing::{delete, get, post},
 };
-use clap::Parser;
 use ippool::IpPool;
-use std::net::SocketAddr;
 use tower_http::LatencyUnit;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::Level;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-#[derive(Parser, Debug)]
-#[command(name = "ippool")]
-#[command(about = "IP Pool API server", long_about = None)]
-struct Args {
-    /// Port to listen on
-    #[arg(short, long, default_value_t = 8080)]
-    port: u16,
+#[shuttle_runtime::main]
+async fn main() -> shuttle_axum::ShuttleAxum {
+    // Create IP pool with hardcoded values
+    let network = "172.16.0".to_string();
+    let gateway = "172.16.0.1".to_string();
+    let pool = IpPool::new(network, gateway);
 
-    /// Network prefix (e.g., 172.16.0 for 172.16.0.0/24)
-    #[arg(short, long, default_value = "172.16.0")]
-    network: String,
-
-    /// Gateway IP address
-    #[arg(short, long, default_value = "172.16.0.1")]
-    gateway: String,
-
-    /// Enable debug mode
-    #[arg(short, long, default_value_t = false)]
-    debug: bool,
-}
-
-#[tokio::main]
-async fn main() {
-    let args = Args::parse();
-
-    // Initialize tracing
-    let log_level = if args.debug { "debug" } else { "info" };
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                format!("ippool={},tower_http={}", log_level, log_level).into()
-            }),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-
-    // Create IP pool
-    let pool = IpPool::new(args.network.clone(), args.gateway.clone());
     tracing::info!(
         "🌐 IP Pool initialized: {}.0/24 (Gateway: {})",
         pool.get_network().await,
@@ -82,10 +48,8 @@ async fn main() {
                 ),
         );
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
-    tracing::info!("🚀 Starting IP Pool API server on {}", addr);
+    tracing::info!("🚀 IP Pool API server starting with Shuttle");
 
-    // Start server
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    // Return the router for Shuttle to serve
+    Ok(app.into())
 }
