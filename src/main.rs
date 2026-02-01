@@ -6,12 +6,19 @@ use axum::{
     routing::{delete, get, post},
 };
 use ippool::IpPool;
+use std::net::SocketAddr;
 use tower_http::LatencyUnit;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::Level;
 
-#[shuttle_runtime::main]
-async fn main() -> shuttle_axum::ShuttleAxum {
+#[tokio::main]
+async fn main() {
+    // Initialize tracing subscriber
+    tracing_subscriber::fmt()
+        .with_target(false)
+        .compact()
+        .init();
+
     // Create IP pool with hardcoded values
     let network = "172.16.0".to_string();
     let gateway = "172.16.0.1".to_string();
@@ -48,8 +55,18 @@ async fn main() -> shuttle_axum::ShuttleAxum {
                 ),
         );
 
-    tracing::info!("🚀 IP Pool API server starting with Shuttle");
+    // Configure server address
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8090));
+    tracing::info!("🚀 IP Pool API server starting on {}", addr);
 
-    // Return the router for Shuttle to serve
-    Ok(app.into())
+    // Start the server
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .expect("Failed to bind to address");
+
+    tracing::info!("✅ Server listening on http://{}", addr);
+
+    axum::serve(listener, app)
+        .await
+        .expect("Server failed to start");
 }
