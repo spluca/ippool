@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ippool-data
+  labels:
+    app: ippool
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # Uncomment and specify storageClassName if needed
+  # storageClassName: standard

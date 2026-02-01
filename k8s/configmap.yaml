@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ippool-config
+  labels:
+    app: ippool
+data:
+  # Environment configuration
+  RUST_LOG: "info"
+  RUST_BACKTRACE: "1"
+  
+  # Network configuration (hardcoded in app, but documented here)
+  # NETWORK: "172.16.0"
+  # GATEWAY: "172.16.0.1"
