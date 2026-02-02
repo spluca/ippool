@@ -47,14 +47,14 @@ RUN chown ippool:ippool /usr/local/bin/ippool
 USER ippool
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8090
 
 # Set default environment variables
 ENV RUST_LOG=info
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://127.0.0.1:8080/api/v1/health || exit 1
+    CMD curl -f http://127.0.0.1:8090/api/v1/health || exit 1
 
 # Run the application
 ENTRYPOINT ["/usr/local/bin/ippool"]
